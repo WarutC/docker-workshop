@@ -20,13 +20,19 @@ style: |
   }
 ---
 
-# Workshop: Hands-on with Podman
+<!-- _paginate: false -->
 
-## Container Orchestration Workshop - Session 2
+<div style="display: flex; align-items: center; justify-content: space-between;">
+  <img src="docker-mark-blue.png" alt="Docker Logo" width="200" style="margin-top: -100px;">
 
-**November 17, 2025 | 13:00 - 16:00**
+  <div>
+    <h1 style="margin: 0;">Workshop: Hands-on with Podman</h1>
+    <h2 style="margin: 10px 0; color: #0066cc;">Container Orchestration Workshop - Session 2</h2>
+    <p><strong>November 17, 2025 | 13:00 - 16:00</strong></p>
+  </div>
+</div>
 
-<div style="position: absolute; bottom: 10px; right: 20px; font-size: 0.8em; color: #666;">
+<div style="position: absolute; bottom: 35px; right: 20px; font-size: 0.8em; color: #666;">
 
 **Speaker:** Warut Chomvorathayee
 Senior Cloud Engineer & Technical Consultant
