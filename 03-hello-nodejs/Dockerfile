@@ -1,5 +1,4 @@
-# ใช้ Node.js official image
-FROM node:18-alpine
+FROM node:alpine
 
 # กำหนด working directory
 WORKDIR /app
