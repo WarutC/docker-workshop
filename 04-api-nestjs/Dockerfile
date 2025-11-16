@@ -21,16 +21,10 @@ RUN pnpm run build
 # Stage 2: Production
 FROM node:alpine
 
-# Install pnpm
-RUN npm install -g pnpm
-
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
-
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+# Copy node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
@@ -42,4 +36,4 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 # Run application
-CMD ["pnpm", "run", "start:prod"]
+CMD ["node", "dist/main"]

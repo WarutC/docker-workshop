@@ -123,17 +123,17 @@ podman --version
 sudo apt-get update
 sudo apt-get install -y podman
 
-# ติดตั้ง podman-compose
-pip3 install podman-compose
+# ติดตั้ง docker compose
+pip3 install docker compose
 # หรือ
-sudo apt-get install podman-compose
+sudo apt-get install docker compose
 ```
 
 ### ตรวจสอบการติดตั้ง
 
 ```bash
 podman --version
-podman-compose --version
+docker compose --version
 ```
 
 ---
@@ -171,7 +171,7 @@ podman machine init --cpus 4 --memory 4096 --disk-size 50
 ```bash
 # ดึง image จาก registry
 podman pull nginx
-podman pull node:18-alpine
+podman pull node:alpine
 
 # แสดง images ทั้งหมด
 podman images
@@ -247,8 +247,8 @@ podman events
 </style>
 
 ```dockerfile
-# Base image
-FROM node:18-alpine
+# Base image (ใช้ latest alpine version)
+FROM node:alpine
 
 # Working directory
 WORKDIR /app
@@ -275,12 +275,12 @@ CMD ["npm", "start"]
 
 | Instruction | คำอธิบาย | ตัวอย่าง |
 | --- | --- | --- |
-| `FROM` | กำหนด base image | `FROM node:18` |
+| `FROM` | กำหนด base image | `FROM node:alpine` |
 | `WORKDIR` | กำหนด working directory | `WORKDIR /app` |
 | `COPY` | Copy ไฟล์เข้า image | `COPY . .` |
-| `RUN` | รันคำสั่งขณะ build | `RUN npm install` |
+| `RUN` | รันคำสั่งขณะ build | `RUN pnpm install` |
 | `EXPOSE` | ระบุ port ที่เปิดใช้ | `EXPOSE 3000` |
-| `CMD` | คำสั่งเริ่มต้น container | `CMD ["node", "app.js"]` |
+| `CMD` | คำสั่งเริ่มต้น container | `CMD ["node", "dist/main"]` |
 | `ENV` | กำหนด environment variable | `ENV NODE_ENV=production` |
 
 ---
@@ -388,8 +388,8 @@ server.listen(3000, '0.0.0.0', () => {
 </style>
 
 ```dockerfile
-# ใช้ Node.js official image
-FROM node:18-alpine
+# ใช้ Node.js official image (latest alpine)
+FROM node:alpine
 
 # กำหนด working directory
 WORKDIR /app
@@ -478,12 +478,15 @@ podman rm hello-app
 │   └── app.service.ts
 ├── Dockerfile
 ├── package.json
-└── tsconfig.json
+├── pnpm-lock.yaml
+├── tsconfig.json
+└── nest-cli.json
 ```
 
 ### เป้าหมาย
 
-- สร้าง REST API ด้วย NestJS
+- สร้าง REST API ด้วย NestJS + TypeScript
+- ใช้ pnpm สำหรับ package management
 - ใช้ Multi-stage build
 - Build production-ready image
 
@@ -493,22 +496,22 @@ podman rm hello-app
 
 ```dockerfile
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:alpine AS builder
+RUN npm install -g pnpm
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # Stage 2: Production
-FROM node:18-alpine
+FROM node:alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 ENV NODE_ENV=production
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]
 ```
 
 ---
@@ -520,14 +523,22 @@ CMD ["npm", "run", "start:prod"]
 - ขนาด image: ~500 MB
 - มี devDependencies ทั้งหมด
 - มี source code (.ts files)
+- มี build tools
 
 ### After (Multi-stage)
 
-- ขนาด image: ~200 MB
+- ขนาด image: ~150-200 MB
 - มีแค่ production dependencies
 - มีแค่ compiled code (.js files)
+- ไม่มี build tools
 
 **ประโยชน์:** Image เล็กลง, รวดเร็วกว่า, ปลอดภัยกว่า
+
+### เทคนิคเพิ่มเติม
+
+- ใช้ `pnpm` แทน `npm` (เร็วกว่า, ประหยัดพื้นที่)
+- Copy `node_modules` จาก builder stage
+- รันด้วย `node` โดยตรง (ไม่ต้องใช้ pnpm ใน production)
 
 ---
 
@@ -615,7 +626,7 @@ ls -la
 ┌─────────────┐         ┌─────────────┐
 │             │         │             │
 │     API     │────────▶│   MongoDB   │
-│  (Node.js)  │         │  Database   │
+│  (NestJS)   │         │  Database   │
 │             │         │             │
 └─────────────┘         └─────────────┘
    Port 3000            Port 27017
@@ -626,13 +637,13 @@ ls -la
 
 ### เป้าหมาย
 
-- เชื่อมต่อ API กับ MongoDB
+- เชื่อมต่อ NestJS API กับ MongoDB
 - ใช้ Podman Compose orchestrate services
 - ใช้ Volume เก็บข้อมูลถาวร
 
 ---
 
-# podman-compose.yml
+# docker compose.yml
 
 ```yaml
 version: '3.8'
@@ -674,6 +685,12 @@ networks:
 ---
 
 # Docker Volumes - ทำไมต้องใช้?
+
+<style scoped>
+  section {
+    font-size: 20px; /* Adjust as needed */
+  }
+</style>
 
 ### ปัญหา: Container ไม่มี Data Persistence
 
@@ -723,32 +740,66 @@ podman volume prune
 
 ---
 
-# API Server Code
+# NestJS API Structure
 
-```javascript
-const { MongoClient } = require('mongodb');
+<style scoped>
+  section {
+    font-size: 18px; /* Adjust as needed */
+  }
+</style>
 
-const MONGODB_URI = process.env.MONGODB_URI;
-let db;
+```
+src/
+├── main.ts                    # Entry point
+├── app.module.ts              # Root module
+├── app.controller.ts          # Root endpoints
+├── database/
+│   ├── database.module.ts    # Database module
+│   └── database.service.ts   # MongoDB connection
+└── users/
+    ├── users.module.ts       # Users module
+    ├── users.controller.ts   # CRUD endpoints
+    └── users.service.ts      # Business logic
+```
 
-// เชื่อมต่อ MongoDB
-async function connectToMongoDB() {
-  const client = new MongoClient(MONGODB_URI);
-  await client.connect();
-  db = client.db('workshop');
-  console.log('✅ Connected to MongoDB');
+### Key Features
+
+- ✅ Modular architecture
+- ✅ Dependency injection
+- ✅ TypeScript support
+- ✅ Auto-initialization with sample data
+
+---
+
+# NestJS Database Service
+
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
+
+```typescript
+// database.service.ts
+@Injectable()
+export class DatabaseService implements OnModuleInit {
+  private client: MongoClient;
+  private db: Db;
+
+  async onModuleInit() {
+    const uri = process.env.MONGODB_URI;
+    this.client = new MongoClient(uri);
+    await this.client.connect();
+    this.db = this.client.db('workshop');
+
+    // สร้าง collection และ seed data
+    await this.initializeCollections();
+  }
+
+  getDb(): Db {
+    return this.db;
+  }
 }
-
-// API endpoints
-app.get('/users', async (req, res) => {
-  const users = await db.collection('users').find({}).toArray();
-  res.json({ total: users.length, users });
-});
-
-app.post('/users', async (req, res) => {
-  const result = await db.collection('users').insertOne(req.body);
-  res.json({ success: true, id: result.insertedId });
-});
 ```
 
 ---
@@ -760,13 +811,13 @@ app.post('/users', async (req, res) => {
 cd workshop/05-database-mongodb
 
 # รัน services ทั้งหมด (build + start)
-podman-compose up -d
+docker compose up -d
 
 # ดู logs
-podman-compose logs -f
+docker compose logs -f
 
 # ดูสถานะ services
-podman-compose ps
+docker compose ps
 
 # ทดสอบ API
 curl http://localhost:3000/users
@@ -798,6 +849,12 @@ db.users.find()
 ---
 
 # Backup และ Restore Volume
+
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
 
 ### Backup ข้อมูล
 
@@ -831,9 +888,15 @@ podman exec workshop-mongodb mongorestore \
 
 # Demo: Database + Compose
 
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
+
 ### 🎯 ลองทำตาม
 
-1. ✅ รัน services ด้วย podman-compose
+1. ✅ รัน services ด้วย docker compose
 2. ✅ ทดสอบ API endpoints
 3. ✅ เพิ่มข้อมูลผ่าน API
 4. ✅ ตรวจสอบข้อมูลใน MongoDB
@@ -842,10 +905,10 @@ podman exec workshop-mongodb mongorestore \
 
 ```bash
 # หยุดและลบ containers (แต่เก็บ volumes)
-podman-compose down
+docker compose down
 
 # รันใหม่
-podman-compose up -d
+docker compose up -d
 
 # ข้อมูลยังอยู่!
 ```
@@ -857,6 +920,12 @@ podman-compose up -d
 ---
 
 # Docker/Podman Network Types
+
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
 
 ### 1. Bridge Network (Default)
 
@@ -957,6 +1026,12 @@ ping 8.8.8.8  # ❌ ไม่สำเร็จ
 
 # Network Segmentation
 
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
+
 แบ่ง networks ตาม security zones:
 
 ```bash
@@ -1014,6 +1089,12 @@ podman exec web1 curl http://web2
 
 # Network Best Practices
 
+<style scoped>
+  section {
+    font-size: 18px;
+  }
+</style>
+
 ### 1. ใช้ Custom Bridge Networks
 
 ```bash
@@ -1058,8 +1139,20 @@ podman network create database-network
 2. เขียน Dockerfile และ build images
 3. จัดการ containers, volumes, networks
 4. ใช้ Podman Compose orchestrate services
-5. เชื่อมต่อ API กับ database
+5. เชื่อมต่อ NestJS API กับ MongoDB
 6. Backup และ restore data
+
+---
+
+# สรุปสิ่งที่ได้เรียนรู้ (contd.)
+
+### ✅ Modern Technologies
+
+1. **Latest Node.js** (node:alpine)
+2. **pnpm** - Package manager ที่เร็วและประหยัดพื้นที่
+3. **NestJS** - Enterprise-grade framework
+4. **TypeScript** - Type-safe development
+5. **MongoDB** - NoSQL database
 
 ### ✅ Concepts
 
@@ -1111,18 +1204,15 @@ podman network create database-network
 
 ### 📧 ติดต่อ
 
-- Email: [your-email]
-- GitHub: [your-github]
-- LinkedIn: [your-linkedin]
+- Email: <warut.chm@gmail.com>
+- GitHub: [WarutC](https://github.com/WarutC)
 
 ### 🎁 Workshop Materials
 
 ```bash
 # Clone workshop materials
-git clone [repository-url]
+git clone https://github.com/WarutC/docker-workshop.git
 
-# หรือดาวน์โหลดจาก
-[download-link]
 ```
 
 ---

@@ -1,16 +1,33 @@
 {
   "name": "database-api",
   "version": "1.0.0",
-  "description": "API with MongoDB connection for Docker workshop",
+  "description": "NestJS API with MongoDB connection for Docker workshop",
   "scripts": {
-    "start": "node src/server.js"
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
     "mongodb": "^6.3.0",
-    "cors": "^2.8.5"
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1"
   },
-  "keywords": ["nodejs", "mongodb", "api", "podman"],
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.1.3"
+  },
+  "keywords": [
+    "nodejs",
+    "nestjs",
+    "mongodb",
+    "api",
+    "podman"
+  ],
   "author": "Docker Training",
   "license": "MIT"
 }

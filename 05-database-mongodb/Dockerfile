@@ -1,27 +1,40 @@
-# ใช้ Node.js official image
-FROM node:18-alpine
+# Stage 1: Build
+FROM node:alpine AS builder
 
-# ติดตั้ง wget สำหรับ health check
-RUN apk add --no-cache wget
+# Install pnpm
+RUN npm install -g pnpm
 
-# กำหนด working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml* ./
 
-# ติดตั้ง dependencies
-RUN npm install --production
+# Install dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
 
-# Copy source code
+# Copy source code and config
 COPY src ./src
+COPY tsconfig.json nest-cli.json ./
+
+# Build application
+RUN pnpm run build
+
+# Stage 2: Production
+FROM node:alpine
+
+WORKDIR /app
+
+# Copy node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
 
 # Expose port
 EXPOSE 3000
 
-# Environment variables
+# Set environment
 ENV NODE_ENV=production
-ENV PORT=3000
 
-# รัน application
-CMD ["npm", "start"]
+# Run application
+CMD ["node", "dist/main"]
